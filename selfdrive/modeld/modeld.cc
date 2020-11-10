@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <unistd.h>
 #include <eigen3/Eigen/Dense>
 
 #include "common/visionbuf.h"
@@ -37,16 +38,15 @@ void* live_thread(void *arg) {
     -1.09890110e-03, 0.00000000e+00, 2.81318681e-01,
     -1.84808520e-20, 9.00738606e-04,-4.28751576e-02;
 
+  Eigen::Matrix<float, 3, 3> fcam_intrinsics;
 #ifndef QCOM2
-  Eigen::Matrix<float, 3, 3> eon_intrinsics;
-  eon_intrinsics <<
+  fcam_intrinsics <<
     910.0, 0.0, 582.0,
     0.0, 910.0, 437.0,
     0.0,   0.0,   1.0;
   float db_s = 0.5; // debayering does a 2x downscale
 #else
-  Eigen::Matrix<float, 3, 3> eon_intrinsics;
-  eon_intrinsics <<
+  fcam_intrinsics <<
     2648.0, 0.0, 1928.0/2,
     0.0, 2648.0, 1208.0/2,
     0.0,   0.0,   1.0;
@@ -68,7 +68,7 @@ void* live_thread(void *arg) {
         extrinsic_matrix_eigen(i / 4, i % 4) = extrinsic_matrix[i];
       }
 
-      auto camera_frame_from_road_frame = eon_intrinsics * extrinsic_matrix_eigen;
+      auto camera_frame_from_road_frame = fcam_intrinsics * extrinsic_matrix_eigen;
       Eigen::Matrix<float, 3, 3> camera_frame_from_ground;
       camera_frame_from_ground.col(0) = camera_frame_from_road_frame.col(0);
       camera_frame_from_ground.col(1) = camera_frame_from_road_frame.col(1);
@@ -152,8 +152,7 @@ int main(int argc, char **argv) {
     float frames_dropped = 0;
 
     // one frame in memory
-    cl_mem yuv_cl;
-    VisionBuf yuv_ion = visionbuf_allocate_cl(buf_info.buf_len, device_id, context, &yuv_cl);
+    VisionBuf yuv_ion = visionbuf_allocate_cl(buf_info.buf_len, device_id, context);
 
     uint32_t frame_id = 0, last_vipc_frame_id = 0;
     double last = 0;
@@ -191,7 +190,7 @@ int main(int argc, char **argv) {
         memcpy(yuv_ion.addr, buf->addr, buf_info.buf_len);
 
         ModelDataRaw model_buf =
-            model_eval_frame(&model, q, yuv_cl, buf_info.width, buf_info.height,
+            model_eval_frame(&model, q, yuv_ion.buf_cl, buf_info.width, buf_info.height,
                              model_transform, NULL, vec_desire);
         mt2 = millis_since_boot();
 

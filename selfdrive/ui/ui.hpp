@@ -178,7 +178,7 @@ typedef struct UIState {
 
   // device state
   bool awake;
-  float light_sensor;
+  float light_sensor, accel_sensor, gyro_sensor;
 
   bool started;
   bool ignition;
@@ -192,6 +192,8 @@ typedef struct UIState {
 
   track_vertices_data track_vertices[2];
   model_path_vertices_data model_path_vertices[MODEL_LANE_PATH_CNT * 2];
+
+  Rect video_rect;
 } UIState;
 
 void ui_init(UIState *s);
@@ -204,7 +206,7 @@ int read_param(T* param, const char *param_name, bool persistent_param = false){
   char *value;
   size_t sz;
 
-  int result = read_db_value(param_name, &value, &sz, persistent_param);
+  int result = Params(persistent_param).read_db_value(param_name, &value, &sz);
   if (result == 0){
     std::string s = std::string(value, sz); // value is not null terminated
     free(value);
